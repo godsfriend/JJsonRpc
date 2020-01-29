@@ -1,7 +1,9 @@
 package com.nbarraille.jjsonrpc;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -59,7 +61,7 @@ public class JJsonPeer extends Thread {
 	private List<PendingRequest> _pendingRequests;
 	
 	private Socket _socket; // The socket used by the peer to communicate.
-	private InputStream _in; // The InputStream of the socket.
+	private BufferedReader _in; // The InputStream of the socket.
 	private PrintWriter _out; // The OutputStream of the socket.
 	private Class<?> _apiClass;
 	
@@ -71,7 +73,7 @@ public class JJsonPeer extends Thread {
 	 */
 	public JJsonPeer(Socket socket, Class<?> apiClass) throws IOException {
 		_socket = socket;
-		_in = _socket.getInputStream();
+		_in = new BufferedReader(new InputStreamReader(_socket.getInputStream()));
 		_out = new PrintWriter(_socket.getOutputStream(), true);
 		_apiClass = apiClass;
 		_pendingRequests = Collections.synchronizedList(new ArrayList<PendingRequest>());
@@ -203,22 +205,20 @@ public class JJsonPeer extends Thread {
 	public void run() {
 		try {
 			_log.log(Level.INFO, "JJSON Peer listening...");
-			while(true){
-				int b;
-				StringBuffer sb = new StringBuffer();
-				if(_in.available() != 0) {
-					// New data incoming, reading
-					while ((b = _in.read()) != END_OF_MESSAGE_CHAR) {
-					     sb.append((char) b);
-					}
-					String data = sb.toString();
+			String data = "";
+			for(;data!=null;data=_in.readLine()){
 					//_log.log(Level.INFO, "Peer on port:" + _socket.getPort() + " said: " + data);
 					// Process data
 					routeIncomingData(data);
-				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+		} finally {
+			try {
+				_socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
